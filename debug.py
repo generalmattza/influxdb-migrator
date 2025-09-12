@@ -11,8 +11,22 @@ migrator.run([
     "--dst-config", r".\.influx.metsys-node1.toml",
     "--src-bucket", "plungecaster",
     "--dst-bucket", "plungecaster",
-    "--start", "2025-05-12T10:00:00Z",
-    "--stop", "2025-05-14T12:00:00Z",
+    # Cast 1
+    # "--start", "2025-03-17T08:00:00Z",
+    # "--stop", "2025-03-21T08:00:00Z",
+    # Cast 2
+    # "--start", "2025-04-04T08:00:00Z",
+    # "--stop", "2025-04-09T08:00:00Z",
+    # Cast 3
+    # "--start", "2025-04-11T08:00:00Z",
+    # "--stop", "2025-04-15T18:00:00Z",
+    # Cast 4
+    "--start", "2025-05-08T08:00:00Z",
+    "--stop", "2025-05-09T18:00:00Z",
+    # Cast 5
+    # "--start", "2025-05-14T12:00:00Z",
+    # "--stop", "2025-05-14T19:00:00Z",
+    # Cast 6
     # "--start", "2025-07-22T15:00:00Z",
     # "--stop", "2025-07-24T08:00:00Z",
     # "--measurement", "temperature",
