@@ -20,6 +20,8 @@ Tips:
 - Use --tag-map to remap tag values: key=from->to, key=~/regex/->replacement, or key=prefix*->replacement (repeatable).
 - Use --tag-inject to add new tags: new_tag=value or new_tag=old_tag:from->to, new_tag=old_tag:~/regex/->replacement, or new_tag=old_tag:prefix*->replacement (repeatable).
 - Use --verbose to enable detailed logging of mappings and injections.
+- Use --measurement multiple times to collect data from multiple measurements (e.g., --measurement heaters --measurement sensors).
+- Use --measurement-regex to match measurements with a regex pattern (e.g., --measurement-regex "^(heaters|sensors)$"). Mutually exclusive with --measurement.
 """
 from __future__ import annotations
 
@@ -84,13 +86,20 @@ def load_influx_config(path: str) -> dict:
     return parsed
 
 
-def build_flux(bucket: str, start: str, stop: str | None, measurement: str | None, tags: list[str] | None, fields: list[str] | None) -> str:
+def build_flux(bucket: str, start: str, stop: str | None, measurements: list[str] | None, measurement_regex: str | None, tags: list[str] | None, fields: list[str] | None) -> str:
     lines = [
         f'from(bucket: "{bucket}")',
         f"  |> range(start: {start}" + (f", stop: {stop})" if stop else ")"),
     ]
-    if measurement:
-        lines.append(f"  |> filter(fn: (r) => r._measurement == \"{measurement}\")")
+    if measurement_regex:
+        # Remove optional leading ~/ and trailing / if present
+        regex = measurement_regex.strip()
+        if regex.startswith("~/") and regex.endswith("/"):
+            regex = regex[2:-1]
+        lines.append(f"  |> filter(fn: (r) => r._measurement =~ /{regex}/)")
+    elif measurements and len(measurements) > 0:
+        ors = " or ".join([f'r._measurement == "{m}"' for m in measurements])
+        lines.append(f"  |> filter(fn: (r) => {ors})")
     if tags:
         for f in tags:
             if "=~/" in f:
@@ -116,8 +125,7 @@ InjectRule = Tuple[Literal["static", "exact", "regex", "wildcard"], str, str | N
 
 
 def parse_tag_maps(map_args: List[str] | None) -> List[MapRule]:
-    """
-    Parse --tag-map specs into rules.
+    """Parse --tag-map specs into rules.
 
     Supported forms (repeatable):
       --tag-map site=old->new                # exact match
@@ -363,7 +371,7 @@ def debug_argv() -> List[str]:
         "--dst-bucket", "plungecaster",
         "--start", "2025-07-22T15:00:00Z",
         "--stop", "2025-07-24T08:00:00Z",
-        "--measurement", "heaters",
+        "--measurement-regex", "^(heaters|sensors)$",
         "--tag-map", "id=heaters*->control",
         "--tag-map", "device=PlungeCaster_Heater_ADSClient->CX-68ABF8",
         "--tag-inject", "env=production",
@@ -384,7 +392,8 @@ def run(argv: List[str] | None = None):
     ap.add_argument("--dst-bucket", required=True)
     ap.add_argument("--start", required=True)
     ap.add_argument("--stop")
-    ap.add_argument("--measurement")
+    ap.add_argument("--measurement", action="append", dest="measurements", help="Specific measurement to collect (repeatable)")
+    ap.add_argument("--measurement-regex", help="Regex pattern to match measurements (mutually exclusive with --measurement)")
     ap.add_argument("--field", action="append", dest="fields")
     ap.add_argument("--tag", action="append", dest="tags")
     ap.add_argument("--window", default="6h")
@@ -400,6 +409,9 @@ def run(argv: List[str] | None = None):
 
     if args.verify and args.dry_run:
         print("Error: --verify and --dry-run cannot be used together.", file=sys.stderr)
+        sys.exit(1)
+    if args.measurements and args.measurement_regex:
+        print("Error: --measurement and --measurement-regex cannot be used together.", file=sys.stderr)
         sys.exit(1)
 
     # Set logging level based on verbosity
@@ -454,12 +466,12 @@ def run(argv: List[str] | None = None):
             win_stop = min(cur + window_td, abs_stop)
             s = cur.isoformat().replace("+00:00", "Z")
             e = win_stop.isoformat().replace("+00:00", "Z")
-            flux = build_flux(args.src_bucket, s, e, args.measurement, args.tags, args.fields)
+            flux = build_flux(args.src_bucket, s, e, args.measurements, args.measurement_regex, args.tags, args.fields)
             logger.info(f"[window {i}] {s} → {e}")
             if args.verify:
                 c = sum(1 for _ in src.query_api().query_stream(query=flux, org=src_cfg["org"]))
                 logger.info(f"found {c} records")
-                moved = c
+                moved = 0
             else:
                 moved = copy_window(
                     src, dst, flux, args.batch_size,
