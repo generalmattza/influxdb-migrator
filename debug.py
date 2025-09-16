@@ -21,14 +21,17 @@ migrator.run([
     # "--start", "2025-04-11T08:00:00Z",
     # "--stop", "2025-04-15T18:00:00Z",
     # Cast 4
-    "--start", "2025-05-08T08:00:00Z",
-    "--stop", "2025-05-09T18:00:00Z",
+    # "--start", "2025-05-08T08:00:00Z",
+    # "--stop", "2025-05-09T18:00:00Z",
     # Cast 5
     # "--start", "2025-05-14T12:00:00Z",
     # "--stop", "2025-05-14T19:00:00Z",
     # Cast 6
     # "--start", "2025-07-22T15:00:00Z",
     # "--stop", "2025-07-24T08:00:00Z",
+    # All
+    "--start", "2025-03-15T08:00:00Z",
+    "--stop", "2025-09-12T20:00:00Z",
     # "--measurement", "temperature",
     "--measurement-regex", "^(heaters|sensors|pressure|temperature|relay_duty_cycle)$",
     "--tag-map", "id=heaters*->control",

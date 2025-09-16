@@ -1,0 +1,5 @@
+.venv
+.*
+!.influx.example.toml
+__pycache__/
+!.gitignore
